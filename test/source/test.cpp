@@ -99,6 +99,4 @@ TEST_CASE("Arrays", "[tinja]") {
     REQUIRE(nodes.at(3).get() == "Vb");
     REQUIRE(nodes.at(4).get() == "Vc");
     REQUIRE(nodes.at(5).get() == "Vc");
-
-
 }

@@ -1,34 +1,20 @@
-#include <fstream>
-#include <regex>
-
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/benchmark/catch_benchmark.hpp>
 
 #include <tinja.hpp>
 
+#include <bustache/format.hpp>
+#include <bustache/render/string.hpp>
+#include <bustache/model.hpp>
+
+#include "bustache_nlohmann_model.hpp"
+#include "bustache_model.hpp"
 #include "inja.hpp"
 #include "micro_mustache.hpp"
 #include "kainjow_mustache.hpp"
+#include "util.hpp"
 
 constexpr size_t loopSize = 120;
-
-void minifyHtml(std::string& str) {
-    //std::cout << "HTML template minified from " << str.size();
-    const std::regex rx2("\\s+<");
-    const std::regex rx3(">\\s+");
-    //_htmlTemplate = std::regex_replace(_htmlTemplate, rx1, "");
-    str = std::regex_replace(str, rx2, "<");
-    str = std::regex_replace(str, rx3, ">");
-    //std::cout << " to " << str.size() << " bytes" << std::endl;
-    str.shrink_to_fit();
-}
-
-std::string readHtmlFile(const std::string& fileName) {
-    std::ifstream file(fileName);
-    std::string str((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-    minifyHtml(str);
-    return str;
-}
 
 std::string concat(const tinja::Template<>::Tokens& tinjaTokens) {
     std::string str;
@@ -89,6 +75,46 @@ TEST_CASE("Performance comparison", "[benchmark]") {
         //_data["ah"] = std::vector<std::string>{"2", "3", "4", "5", "6"};
     }
 
+    std::unordered_map<std::string, std::string> bustacheData; {
+        bustacheData["f"] = "06:00";
+        bustacheData["t"] = "16:00";
+        bustacheData["d"] = "3 min";
+        bustacheData["i"] = "30 min";
+        bustacheData["r"] = "0.3 °C/s";
+        bustacheData["v"] = "52.3 °C";
+        bustacheData["p"] = "56";
+        bustacheData["dv"] = "-0.1 °C/s";
+        bustacheData["dp"] = "33";
+        bustacheData["rc"] = "bg-warning";
+        bustacheData["ac"] = "bg-warning progress-bar-striped progress-bar-animated";
+        bustacheData["fh"] = "123434";
+        bustacheData["fb"] = "23444";
+        bustacheData["hf"] = "45";
+        //_data["sh"] = std::vector<std::string>{"1", "2", "3", "4"};
+        bustacheData["maxH"] = "99";
+        //_data["ah"] = std::vector<std::string>{"2", "3", "4", "5", "6"};
+    }
+
+    bustache::test::object bustacheDataLoop {
+        {"f", "06:00"},
+        {"t", "16:00"},
+        {"d", "3 min"},
+        {"i", "30 min"},
+        {"r", "0.3 °C/s"},
+        {"v", "52.3 °C"},
+        {"p", "56"},
+        {"dv", "-0.1 °C/s"},
+        {"dp", "33"},
+        {"rc", "bg-warning"},
+        {"ac", "bg-warning progress-bar-striped progress-bar-animated"},
+        {"fh", "123434"},
+        {"fb", "23444"},
+        {"hf", "45"},
+        //{"sh"] = std::vector<std::string>{"1", "2", "3", "4"};
+        {"maxH", "99"}
+        //{"ah"] = std::vector<std::string>{"2", "3", "4", "5", "6"};
+    };
+
     tinja::DataMap tinjaData; {
         tinjaData["f"] = "06:00";
         tinjaData["t"] = "16:00";
@@ -137,14 +163,17 @@ TEST_CASE("Performance comparison", "[benchmark]") {
             kainjow::mustache::mustache kainjowTempl(basicString);
             const auto kainjowDoc = kainjowTempl.render(kainjowData);
             const auto injaDoc = inja::render(basicString, injaData);
+            bustache::format bustacheTempl(basicString);
+            const auto bustacheDoc = bustache::to_string(bustacheTempl(bustacheData));
             REQUIRE(microDoc == kainjowDoc);
             REQUIRE(kainjowDoc == injaDoc);
+            REQUIRE(injaDoc == bustacheDoc);
 
             tinja::Template tinjaTempl;
             const auto nodeCount = tinjaTempl.parse(basicString);
             std::cout << "tinja> template has: " << nodeCount << " nodes";
             const auto tinjaDoc = concat(tinjaTempl.render(tinjaData));
-            REQUIRE(tinjaDoc == injaDoc);
+            REQUIRE(tinjaDoc == bustacheDoc);
         }
 
         BENCHMARK_ADVANCED("micro_mustache")(Catch::Benchmark::Chronometer meter) {
@@ -162,6 +191,12 @@ TEST_CASE("Performance comparison", "[benchmark]") {
             meter.measure([&] { return inja::render(basicString, injaData); });
         };
 
+        BENCHMARK_ADVANCED("bustache")(Catch::Benchmark::Chronometer meter) {
+            meter.measure([&] {
+                bustache::format bustacheTempl(basicString);
+                return bustache::to_string(bustacheTempl(bustacheData));
+            });
+        };
 
         BENCHMARK_ADVANCED("tinja")(Catch::Benchmark::Chronometer meter) {
             meter.measure([&] {
@@ -177,14 +212,14 @@ TEST_CASE("Performance comparison", "[benchmark]") {
             });
         };
 
-        BENCHMARK_ADVANCED("tinja --concatenated")(Catch::Benchmark::Chronometer meter) {
+        BENCHMARK_ADVANCED("tinja --concat")(Catch::Benchmark::Chronometer meter) {
             meter.measure([&] {
                 tinja::Template templ(basicString);
                 return concat(templ.render(tinjaData));
             });
         };
 
-        BENCHMARK_ADVANCED("tinja --32_nodes_reserved --concatenated")(Catch::Benchmark::Chronometer meter) {
+        BENCHMARK_ADVANCED("tinja --32_nodes_reserved --concat")(Catch::Benchmark::Chronometer meter) {
             meter.measure([&] {
                 tinja::Template<32> templ(basicString);
                 return concat(templ.render(tinjaData));
@@ -208,12 +243,17 @@ TEST_CASE("Performance comparison", "[benchmark]") {
             meter.measure([&] { return env.render(templ, injaData); });
         };
 
+        BENCHMARK_ADVANCED("bustache")(Catch::Benchmark::Chronometer meter) {
+            bustache::format bustacheTempl(basicString);
+            meter.measure([&] { return bustache::to_string(bustacheTempl(bustacheData)); });
+        };
+
         BENCHMARK_ADVANCED("tinja")(Catch::Benchmark::Chronometer meter) {
             tinja::Template templ(basicString);
             meter.measure([&] { return templ.render(tinjaData); });
         };
 
-        BENCHMARK_ADVANCED("tinja --concatenated")(Catch::Benchmark::Chronometer meter) {
+        BENCHMARK_ADVANCED("tinja --concat")(Catch::Benchmark::Chronometer meter) {
             tinja::Template templ(basicString);
             meter.measure([&] { return concat(templ.render(tinjaData)); });
         };
@@ -236,6 +276,17 @@ TEST_CASE("Performance comparison", "[benchmark]") {
         }
         kainjowData["hs"] = kainjowHs;
 
+        // TODO: this does not work
+        bustache::test::array bustacheHs;
+        for (auto i = 0; i < loopSize; ++i) {
+            bustache::test::object o {
+                { "s", sh.at(i) },
+                { "a", ah.at(i) }
+            };
+            bustacheHs.push_back(o);
+        }
+        bustacheDataLoop.push_back( {"hs", bustacheHs } );
+
         auto injaHs = inja::json::array();
         for (auto i = 0; i < loopSize; ++i) {
             inja::json o;
@@ -248,39 +299,48 @@ TEST_CASE("Performance comparison", "[benchmark]") {
         tinjaData["sh"] = sh;
         tinjaData["ah"] = ah;
 
+        kainjow::mustache::mustache kainjowTempl(mustacheString);
+        inja::Environment injaEnv;
+        inja::Template injaTempl = injaEnv.parse(injaString);
+        bustache::format bustacheTempl(mustacheString);
+        tinja::Template tinjaTempl(tinjaString);
+
         SECTION("sanity check") {
-            kainjow::mustache::mustache kainjowTempl(mustacheString);
             const auto kainjowDoc = kainjowTempl.render(kainjowData);
             const auto injaDoc = inja::render(injaString, injaData);
-            REQUIRE(kainjowDoc == injaDoc);
-
-
-            tinja::Template tinjaTempl;
+            const auto bustacheDocJson = bustache::to_string(bustacheTempl(injaData));
+            const auto bustacheDocNative = bustache::to_string(bustacheTempl(bustacheData));
             const auto tinjaNodeCount = tinjaTempl.parse(tinjaString);
             const auto tinjaTokens = tinjaTempl.render(tinjaData);
             std::cout << "tinja> " << tinjaNodeCount << " nodes parse to " << tinjaTokens.size() << " tokens" << std::endl;
-            REQUIRE(injaDoc == concat(tinjaTokens));
+            REQUIRE(kainjowDoc == injaDoc);
+            REQUIRE(injaDoc == bustacheDocJson);
+            //REQUIRE(bustacheDocJson == bustacheDocNative);
+            REQUIRE(bustacheDocJson == concat(tinjaTokens));
         }
 
         BENCHMARK_ADVANCED("kainjow_mustache")(Catch::Benchmark::Chronometer meter) {
-            kainjow::mustache::mustache doc(mustacheString);
-            meter.measure([&] { return doc.render(kainjowData); });
+            meter.measure([&] { return kainjowTempl.render(kainjowData); });
         };
 
         BENCHMARK_ADVANCED("inja")(Catch::Benchmark::Chronometer meter) {
-            inja::Environment env;
-            inja::Template templ = env.parse(injaString);
-            meter.measure([&] { return env.render(templ, injaData); });
+            meter.measure([&] { return injaEnv.render(injaTempl, injaData); });
         };
+
+        BENCHMARK_ADVANCED("bustache --concat --nlohmann")(Catch::Benchmark::Chronometer meter) {
+            meter.measure([&] { return bustache::to_string(bustacheTempl(injaData)); });
+        };
+
+        //BENCHMARK_ADVANCED("bustache --native")(Catch::Benchmark::Chronometer meter) {
+        //    meter.measure([&] { return bustache::to_string(bustacheTempl(bustacheDataLoop)); });
+        //};
 
         BENCHMARK_ADVANCED("tinja")(Catch::Benchmark::Chronometer meter) {
-            tinja::Template templ(tinjaString);
-            meter.measure([&] { return templ.render(tinjaData); });
+            meter.measure([&] { return tinjaTempl.render(tinjaData); });
         };
 
-        BENCHMARK_ADVANCED("tinja --concatenated")(Catch::Benchmark::Chronometer meter) {
-            tinja::Template templ(tinjaString);
-            meter.measure([&] { return concat(templ.render(tinjaData)); });
+        BENCHMARK_ADVANCED("tinja --concat")(Catch::Benchmark::Chronometer meter) {
+            meter.measure([&] { return concat(tinjaTempl.render(tinjaData)); });
         };
     }
 }
