@@ -14,7 +14,7 @@
 #include "kainjow_mustache.hpp"
 #include "util.hpp"
 
-constexpr size_t loopSize = 120;
+constexpr size_t loopSize = 60;
 
 std::string concat(const tinja::Template<>::Tokens& tinjaTokens) {
     std::string str;
