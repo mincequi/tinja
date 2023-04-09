@@ -1,5 +1,5 @@
 # Tinja
-Tinja is a tiny template engine for C++17, loosely inspired by 
+Tinja is a tiny (~200 lines of code) template engine for C++17, loosely inspired by 
 [inja](https://github.com/pantor/inja) and [mustache](https://mustache.github.io). It is 
 "logic-less" because no complex statements within your templates are needed. Instead, there 
 are only two kind of tags: **variables** `{{name}}` and **arrays** `{[Hello {{name}}!]}` 
@@ -28,11 +28,12 @@ tokens = doc.render(data); // Returns "Hello Mike!", "Hello Charly!", "Hello Leo
 If you render an array and have multiple tags provided, it will be rendered as often as the smallest provided array size.
 If a variable is provided, it will be simply repeated for each loop:
 ```.cpp
-tinja::Template templ.parse("{[{{variable}}> {{firstArray}} {{secondArray}}!]}");
-tinja::DataMap data["variable"] = tinja::Strings { "Hello" };
-tinja::DataMap data["firstArray"] = tinja::Strings { "1", "2", "3", "4" };
-tinja::DataMap data["secondArray"] = tinja::Strings { "Mike", "Charly", "Leo" };
-tokens = doc.render(data); // Returns "1> Hello Mike!", "2> Hello Charly!", "3> Hello Leo!"
+tinja::Template templ("{[{{firstArray}}: {{variable}} {{secondArray}}!]}");
+tinja::DataMap data;
+data["variable"] = "Hello";
+data["firstArray"] = tinja::Strings { "1", "2", "3", "4" };
+data["secondArray"] = tinja::Strings { "Mike", "Charly", "Leo" };
+auto tokens = templ.render(data); // Returns "1: Hello Mike!", "2: Hello Charly!", "3: Hello Leo!"
 ```
 
 # Building and installing
@@ -92,7 +93,7 @@ Lower is better.
 *Tinja* outperforms *Bustache* by a factor of **1.2** to **4.6** depending on the scenario but does not offer a complete *mustache* implementation.
 
 ![benchmark](doc/tinja_benchmark.svg)  
-Note: the scale is log2.
+Note: scale is log2.
 
 # Licensing
 **Tinja** is Free Software: You can use, study, share and improve it at your

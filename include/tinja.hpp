@@ -57,6 +57,7 @@ public:
             pos = nextPos;
         }
         _lastTokenCount = _lastTokenCount ? _lastTokenCount : _nodes.size();
+        _lastNodeCount = _nodes.size();
         return _nodes.size();
     };
 
