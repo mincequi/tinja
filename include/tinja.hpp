@@ -22,15 +22,16 @@ struct Overload : Ts... {
 };
 template<class... Ts> Overload(Ts...) -> Overload<Ts...>;
 
-template<size_t R = 0>
 class Template {
 public:
     using Tokens = StringRefs;
 
-    Template() {
+    Template(size_t reserveNodes = 0) :
+        _lastNodeCount(reserveNodes) {
     }
 
-    Template(const String& str) {
+    Template(const String& str, size_t reserveNodes = 0) :
+        _lastNodeCount(reserveNodes) {
         parse(str);
     }
 
@@ -56,17 +57,13 @@ public:
             }
             pos = nextPos;
         }
-        _lastTokenCount = _lastTokenCount ? _lastTokenCount : _nodes.size();
         _lastNodeCount = _nodes.size();
         return _nodes.size();
     };
 
-    Tokens render(const DataMap& dataMap) const {
-        Tokens tokens;
-        tokens.reserve(_lastTokenCount);
-        render(dataMap, 0, tokens);
-        _lastTokenCount = tokens.size();
-        return tokens;
+    void renderTo(const DataMap& dataMap, Tokens& tokens) const {
+        tokens.clear();
+        renderTo(dataMap, tokens, 0);
     }
 
 private:
@@ -119,7 +116,7 @@ private:
     }
 
     // Render tokens with data map
-    void render(const DataMap& dataMap, unsigned index, Tokens& tokens) const {
+    void renderTo(const DataMap& dataMap, Tokens& tokens, size_t index) const {
         for (const auto& node : _nodes) {
             switch (node.index()) {
             case 0:
@@ -151,7 +148,7 @@ private:
                 const auto& doc = std::get<2>(node);
                 const auto loopLength_ = doc.loopLength(dataMap);
                 for (size_t i = 0; i < loopLength_; ++i) {
-                    doc.render(dataMap, i, tokens);
+                    doc.renderTo(dataMap, tokens, i);
                 }
                 break;
             }
@@ -189,8 +186,7 @@ private:
     }
 
     std::vector<Node> _nodes;
-    size_t _lastNodeCount = R;
-    mutable size_t _lastTokenCount = 0;
+    size_t _lastNodeCount = 0;
 };
 
 } // namespace tinja

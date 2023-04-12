@@ -16,9 +16,10 @@ which fulfill most needs for anyone.
 #include <tinja.hpp>
 
 tinja::Template templ("Hello {{name}}!");
+tinja::Template::Tokens tokens;
 tinja::DataMap data;
 data["name"] = "world";
-auto tokens = templ.render(data); // Returns "Hello world!"
+templ.renderTo(data, tokens); // Renders "Hello world!"
 
 templ.parse("{[Hello {{others}}!]}");
 data["others"] = tinja::Strings { "Mike", "Charly", "Leo" };
@@ -29,11 +30,12 @@ If you render an array and have multiple tags provided, it will be rendered as o
 If a variable is provided, it will be simply repeated for each loop:
 ```.cpp
 tinja::Template templ("{[{{firstArray}}: {{variable}} {{secondArray}}!]}");
+tinja::Template::Tokens tokens;
 tinja::DataMap data;
 data["variable"] = "Hello";
 data["firstArray"] = tinja::Strings { "1", "2", "3", "4" };
 data["secondArray"] = tinja::Strings { "Mike", "Charly", "Leo" };
-auto tokens = templ.render(data); // Returns "1: Hello Mike!", "2: Hello Charly!", "3: Hello Leo!"
+templ.renderTo(data, tokens); // Renders "1: Hello Mike!", "2: Hello Charly!", "3: Hello Leo!"
 ```
 
 # Building and installing

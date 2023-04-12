@@ -16,7 +16,7 @@
 
 constexpr size_t loopSize = 60;
 
-std::string concat(const tinja::Template<>::Tokens& tinjaTokens) {
+std::string concat(const tinja::Template::Tokens& tinjaTokens) {
     std::string str;
     size_t toReserve = 0;
     for (const auto& t : tinjaTokens) {
@@ -170,9 +170,11 @@ TEST_CASE("Performance comparison", "[benchmark]") {
             REQUIRE(injaDoc == bustacheDoc);
 
             tinja::Template tinjaTempl;
+            tinja::Template::Tokens tinjaTokens;
             const auto nodeCount = tinjaTempl.parse(basicString);
             std::cout << "tinja> template has: " << nodeCount << " nodes";
-            const auto tinjaDoc = concat(tinjaTempl.render(tinjaData));
+            tinjaTempl.renderTo(tinjaData, tinjaTokens);
+            const auto tinjaDoc = concat(tinjaTokens);
             REQUIRE(tinjaDoc == bustacheDoc);
         }
 
@@ -201,33 +203,41 @@ TEST_CASE("Performance comparison", "[benchmark]") {
         BENCHMARK_ADVANCED("tinja")(Catch::Benchmark::Chronometer meter) {
             meter.measure([&] {
                 tinja::Template templ(basicString);
-                return templ.render(tinjaData);
+                tinja::Template::Tokens tokens;
+                return templ.renderTo(tinjaData, tokens);
             });
         };
 
         BENCHMARK_ADVANCED("tinja --32_nodes_reserved")(Catch::Benchmark::Chronometer meter) {
             meter.measure([&] {
-                tinja::Template<32> templ(basicString);
-                return templ.render(tinjaData);
+                tinja::Template templ(basicString, 32);
+                tinja::Template::Tokens tokens;
+                return templ.renderTo(tinjaData, tokens);
             });
         };
 
         BENCHMARK_ADVANCED("tinja --concat")(Catch::Benchmark::Chronometer meter) {
             meter.measure([&] {
                 tinja::Template templ(basicString);
-                return concat(templ.render(tinjaData));
+                tinja::Template::Tokens tokens;
+                templ.renderTo(tinjaData, tokens);
+                return concat(tokens);
             });
         };
 
         BENCHMARK_ADVANCED("tinja --32_nodes_reserved --concat")(Catch::Benchmark::Chronometer meter) {
             meter.measure([&] {
-                tinja::Template<32> templ(basicString);
-                return concat(templ.render(tinjaData));
+                tinja::Template templ(basicString, 32);
+                tinja::Template::Tokens tokens;
+                templ.renderTo(tinjaData, tokens);
+                return concat(tokens);
             });
         };
     }
 
     SECTION("preparsed") {
+        tinja::Template::Tokens tinjaTokens;
+
         BENCHMARK_ADVANCED("micro_mustache")(Catch::Benchmark::Chronometer meter) {
             meter.measure([&] { return moustache_render(basicString, moustacheData); });
         };
@@ -250,12 +260,15 @@ TEST_CASE("Performance comparison", "[benchmark]") {
 
         BENCHMARK_ADVANCED("tinja")(Catch::Benchmark::Chronometer meter) {
             tinja::Template templ(basicString);
-            meter.measure([&] { return templ.render(tinjaData); });
+            meter.measure([&] { return templ.renderTo(tinjaData, tinjaTokens); });
         };
 
         BENCHMARK_ADVANCED("tinja --concat")(Catch::Benchmark::Chronometer meter) {
             tinja::Template templ(basicString);
-            meter.measure([&] { return concat(templ.render(tinjaData)); });
+            meter.measure([&] {
+                templ.renderTo(tinjaData, tinjaTokens);
+                return concat(tinjaTokens);
+            });
         };
     }
 
@@ -304,6 +317,7 @@ TEST_CASE("Performance comparison", "[benchmark]") {
         inja::Template injaTempl = injaEnv.parse(injaString);
         bustache::format bustacheTempl(mustacheString);
         tinja::Template tinjaTempl(tinjaString);
+        tinja::Template::Tokens tinjaTokens;
 
         SECTION("sanity check") {
             const auto kainjowDoc = kainjowTempl.render(kainjowData);
@@ -311,7 +325,8 @@ TEST_CASE("Performance comparison", "[benchmark]") {
             const auto bustacheDocJson = bustache::to_string(bustacheTempl(injaData));
             const auto bustacheDocNative = bustache::to_string(bustacheTempl(bustacheData));
             const auto tinjaNodeCount = tinjaTempl.parse(tinjaString);
-            const auto tinjaTokens = tinjaTempl.render(tinjaData);
+            tinja::Template::Tokens tinjaTokens;
+            tinjaTempl.renderTo(tinjaData, tinjaTokens);
             std::cout << "tinja> " << tinjaNodeCount << " nodes parse to " << tinjaTokens.size() << " tokens" << std::endl;
             REQUIRE(kainjowDoc == injaDoc);
             REQUIRE(injaDoc == bustacheDocJson);
@@ -336,11 +351,14 @@ TEST_CASE("Performance comparison", "[benchmark]") {
         //};
 
         BENCHMARK_ADVANCED("tinja")(Catch::Benchmark::Chronometer meter) {
-            meter.measure([&] { return tinjaTempl.render(tinjaData); });
+            meter.measure([&] { return tinjaTempl.renderTo(tinjaData, tinjaTokens); });
         };
 
         BENCHMARK_ADVANCED("tinja --concat")(Catch::Benchmark::Chronometer meter) {
-            meter.measure([&] { return concat(tinjaTempl.render(tinjaData)); });
+            meter.measure([&] {
+                tinjaTempl.renderTo(tinjaData, tinjaTokens);
+                return concat(tinjaTokens);
+            });
         };
     }
 }
